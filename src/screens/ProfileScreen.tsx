@@ -4,8 +4,10 @@ import { LogOut, MapPin, Edit2, Camera, Loader, X, Save } from 'lucide-react'
 import { sports } from '../data/mockData'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
+import { AchievementBadge } from '../components/AchievementBadge'
 import { useEvents } from '../context/EventsContext'
 import { useAuth } from '../context/AuthContext'
+import { ACHIEVEMENTS } from '../data/achievements'
 
 interface ProfileScreenProps {
   onLogout: () => void
@@ -13,8 +15,6 @@ interface ProfileScreenProps {
 
 const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const skillLevels = ['Beginner', 'Intermediate', 'Advanced', 'Pro'] as const
-
-// ─── Edit modal ───────────────────────────────────────────────────────────────
 
 interface EditModalProps {
   initial: {
@@ -31,12 +31,12 @@ interface EditModalProps {
 const AVATAR_OPTIONS = ['👤', '😊', '🤓', '😎', '🏋️', '🎯', '🏃', '🚴', '🎾', '⚽']
 
 const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
-  const [name,         setName]        = useState(initial.name)
-  const [bio,          setBio]         = useState(initial.bio)
-  const [location,     setLocation]    = useState(initial.location)
-  const [skillLevel,   setSkillLevel]  = useState(initial.skill_level)
-  const [avatarEmoji,  setAvatarEmoji] = useState(initial.avatar_emoji)
-  const [saving,       setSaving]      = useState(false)
+  const [name, setName] = useState(initial.name)
+  const [bio, setBio] = useState(initial.bio)
+  const [location, setLocation] = useState(initial.location)
+  const [skillLevel, setSkillLevel] = useState(initial.skill_level)
+  const [avatarEmoji, setAvatarEmoji] = useState(initial.avatar_emoji)
+  const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
     if (!name.trim()) return
@@ -62,7 +62,6 @@ const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
         className="bg-card-bg border border-white/10 rounded-3xl p-6 w-full max-w-md space-y-5 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-display font-bold text-white">Edit Profile</h2>
           <button onClick={onClose} className="text-text-muted hover:text-white transition-colors">
@@ -70,7 +69,6 @@ const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
           </button>
         </div>
 
-        {/* Avatar picker */}
         <div>
           <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-2">Avatar</p>
           <div className="flex gap-2 flex-wrap">
@@ -92,7 +90,6 @@ const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
           </div>
         </div>
 
-        {/* Name */}
         <div>
           <label className="block text-white font-sans font-semibold mb-2 text-sm">Display Name *</label>
           <input
@@ -104,7 +101,6 @@ const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
           />
         </div>
 
-        {/* Bio */}
         <div>
           <label className="block text-white font-sans font-semibold mb-2 text-sm">Bio</label>
           <textarea
@@ -116,7 +112,6 @@ const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
           />
         </div>
 
-        {/* Location */}
         <div>
           <label className="block text-white font-sans font-semibold mb-2 text-sm">City</label>
           <input
@@ -128,7 +123,6 @@ const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
           />
         </div>
 
-        {/* Skill level */}
         <div>
           <label className="block text-white font-sans font-semibold mb-2 text-sm">Skill Level</label>
           <div className="grid grid-cols-2 gap-2">
@@ -149,31 +143,17 @@ const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
           </div>
         </div>
 
-        {/* Save */}
-        <Button
-          onClick={handleSave}
-          disabled={!name.trim() || saving}
-          size="lg"
-          className="w-full"
-        >
+        <Button onClick={handleSave} disabled={!name.trim() || saving} size="lg" className="w-full">
           {saving ? (
-            <>
-              <Loader size={16} className="animate-spin" />
-              Saving…
-            </>
+            <><Loader size={16} className="animate-spin" />Saving…</>
           ) : (
-            <>
-              <Save size={16} />
-              Save Changes
-            </>
+            <><Save size={16} />Save Changes</>
           )}
         </Button>
       </motion.div>
     </motion.div>
   )
 }
-
-// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const { events } = useEvents()
@@ -182,22 +162,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const [avatarLoading, setAvatarLoading] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
 
-  // Merge Supabase profile with localStorage fallback
+  // Local override state — updated immediately on save, no waiting for Supabase
   const localRaw = localStorage.getItem('userProfile')
   const local = localRaw ? JSON.parse(localRaw) : null
 
-  const displayName        = profile?.name         || local?.name         || 'Player'
-  const displayBio         = profile?.bio          || local?.bio          || ''
-  const displayLocation    = profile?.location     || local?.location     || ''
-  const displaySkill       = profile?.skill_level  || local?.skillLevel   || ''
-  const displaySports: string[]       = profile?.sports       || local?.selectedSports || []
-  const displayAvailability: string[] = profile?.availability || local?.availability   || []
-  const displayAvatar      = profile?.avatar_emoji || local?.avatar_emoji || local?.avatarEmoji || '👤'
-  const displayAvatarUrl   = profile?.avatar_url   || null
-  const gamesPlayed        = profile?.games_played ?? 0
-  const streak             = profile?.streak       ?? 0
+  const [localOverride, setLocalOverride] = useState<{
+    name?: string
+    bio?: string
+    location?: string
+    skill_level?: string
+    avatar_emoji?: string
+  } | null>(null)
 
-  const initials   = displayName.charAt(0).toUpperCase()
+  // Merge priority: localOverride > supabase profile > localStorage > defaults
+  const displayName = localOverride?.name ?? profile?.name ?? local?.name ?? 'Player'
+  const displayBio = localOverride?.bio ?? profile?.bio ?? local?.bio ?? ''
+  const displayLocation = localOverride?.location ?? profile?.location ?? local?.location ?? ''
+  const displaySkill = localOverride?.skill_level ?? profile?.skill_level ?? local?.skillLevel ?? ''
+  const displayAvatar = localOverride?.avatar_emoji ?? profile?.avatar_emoji ?? local?.avatar_emoji ?? local?.avatarEmoji ?? '👤'
+  const displayAvatarUrl = profile?.avatar_url ?? null
+  const displaySports: string[] = profile?.sports ?? local?.selectedSports ?? []
+  const displayAvailability: string[] = profile?.availability ?? local?.availability ?? []
+  const gamesPlayed = profile?.games_played ?? 0
+  const streak = profile?.streak ?? 0
+
+  const initials = displayName.charAt(0).toUpperCase()
   const userSports = sports.filter((s) => displaySports.includes(s.id))
 
   const handleAvatarClick = () => fileInputRef.current?.click()
@@ -213,23 +202,51 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const handleSaveEdit = async (data: {
     name: string; bio: string; location: string; skill_level: string; avatar_emoji: string
   }) => {
-    // updateProfile writes to localStorage immediately and tries Supabase in background
-    await updateProfile(data)
+    // 1. Update local override immediately — UI updates right away
+    setLocalOverride(data)
+
+    // 2. Save to localStorage as persistent fallback
+    const existing = localStorage.getItem('userProfile')
+    const parsed = existing ? JSON.parse(existing) : {}
+    localStorage.setItem('userProfile', JSON.stringify({
+      ...parsed,
+      name: data.name,
+      bio: data.bio,
+      location: data.location,
+      skillLevel: data.skill_level,
+      avatar_emoji: data.avatar_emoji,
+    }))
+
+    // 3. Try Supabase in background — don't block UI
+    updateProfile(data).catch(() => {})
   }
 
-  const handleLogout = async () => {
-    // Clear all local state
-    localStorage.clear()
-    sessionStorage.clear()
-    await signOut()
-    onLogout()
+const handleLogout = async () => {
+  console.log("Se inițiază Log Out..."); // Verifică în consolă (F12) dacă apare asta
+  
+  try {
+    // 1. Ștergem totul din memoria locală instant
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    
+    // 2. Semnalăm către Supabase să închidă sesiunea
+    await supabase.auth.signOut();
+    
+    // 3. Forțăm redirectarea prin reîncărcare completă de pagină
+    // Asta taie orice legătură cu starea veche a aplicației
+    window.location.replace('/auth'); 
+
+  } catch (error) {
+    console.error("Eroare la log out:", error);
+    // Chiar și cu eroare de la server, forțăm ieșirea din UI
+    window.location.replace('/auth');
   }
+};
 
   return (
     <div className="min-h-screen bg-dark-bg pb-32 lg:pb-8">
       <div className="max-w-md mx-auto p-4 space-y-6">
 
-        {/* Header */}
         <div className="pt-4 flex justify-between items-center">
           <h1 className="text-3xl font-display font-bold text-white">Profile</h1>
           <motion.button
@@ -243,7 +260,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           </motion.button>
         </div>
 
-        {/* Avatar + name */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -286,7 +302,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           </div>
         </motion.div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: 'Games', value: gamesPlayed, emoji: '🏅' },
@@ -307,7 +322,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           ))}
         </div>
 
-        {/* Skill level */}
         {displaySkill && (
           <div className="bg-card-bg border border-white/10 rounded-2xl p-4">
             <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-2">Skill Level</p>
@@ -315,7 +329,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           </div>
         )}
 
-        {/* My sports */}
+        {/* ── Achievements ─────────────────────────────────────────────── */}
+        <div className="bg-card-bg border border-white/10 rounded-2xl p-4">
+          <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-3">🏆 Achievements</p>
+          <div className="grid grid-cols-3 gap-2">
+            {ACHIEVEMENTS.map((achievement) => {
+              const stats = {
+                gamesPlayed,
+                sports: displaySports,
+                streak,
+                eventsCreated: events.length,
+              }
+              return (
+                <AchievementBadge
+                  key={achievement.id}
+                  achievement={achievement}
+                  unlocked={achievement.condition(stats)}
+                />
+              )
+            })}
+          </div>
+        </div>
+
         {userSports.length > 0 && (
           <div className="bg-card-bg border border-white/10 rounded-2xl p-4">
             <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-3">My Sports</p>
@@ -329,7 +364,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           </div>
         )}
 
-        {/* Availability */}
         {displayAvailability.length > 0 && (
           <div className="bg-card-bg border border-white/10 rounded-2xl p-4">
             <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-3">Availability</p>
@@ -345,7 +379,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           </div>
         )}
 
-        {/* My created events */}
         <div className="bg-card-bg border border-white/10 rounded-2xl p-4">
           <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-3">My Created Events</p>
           {events.length === 0 ? (
@@ -368,7 +401,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           )}
         </div>
 
-        {/* Logout */}
         <motion.button
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
@@ -380,7 +412,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         </motion.button>
       </div>
 
-      {/* Edit modal */}
       <AnimatePresence>
         {showEditModal && (
           <EditModal
