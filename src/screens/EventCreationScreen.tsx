@@ -9,6 +9,7 @@ import { sports } from '../data/mockData'
 import { SportCard } from '../components/SportCard'
 import { Button } from '../components/Button'
 import { Badge } from '../components/Badge'
+import { ShareButton } from '../components/ShareButton'
 import { useEvents } from '../context/EventsContext'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -117,11 +118,34 @@ export const EventCreationScreen: React.FC = () => {
     aiTimer.current = setTimeout(() => {
       const parsed = parseSmartDescription(text)
       const newFilled = new Set<string>()
-      if (parsed.detectedSport && !selectedSport) { setSelectedSport(parsed.detectedSport); newFilled.add('sport') }
-      if (parsed.detectedSkillLevel && !skillLevel) { setSkillLevel(parsed.detectedSkillLevel as typeof skillLevels[number]); newFilled.add('skill') }
-      if (parsed.detectedPlayers) { setMaxPlayers(Math.min(Math.max(parsed.detectedPlayers, minPlayers), maxAllowed)); newFilled.add('players') }
-      if (parsed.detectedCity && !location) { setLocation(parsed.detectedCity); newFilled.add('location') }
-      if (parsed.detectedTime && !time) { setTime(parsed.detectedTime); newFilled.add('time') }
+
+      if (parsed.detectedSport && !selectedSport) {
+        setSelectedSport(parsed.detectedSport)
+        newFilled.add('sport')
+      }
+      if (parsed.detectedSkillLevel && !skillLevel) {
+        setSkillLevel(parsed.detectedSkillLevel as typeof skillLevels[number])
+        newFilled.add('skill')
+      }
+      if (parsed.detectedPlayers) {
+        setMaxPlayers(Math.min(Math.max(parsed.detectedPlayers, minPlayers), maxAllowed))
+        newFilled.add('players')
+      }
+      if (parsed.detectedCity && !location) {
+        setLocation(parsed.detectedCity)
+        newFilled.add('location')
+      }
+      // Auto-fill date from relative/named-day detection
+      if (parsed.detectedDate && !date) {
+        setDate(parsed.detectedDate)
+        newFilled.add('date')
+      }
+      // Auto-fill time
+      if (parsed.detectedTime && !time) {
+        setTime(parsed.detectedTime)
+        newFilled.add('time')
+      }
+      // Auto-generate title
       if (parsed.detectedSport && !title) {
         const sportObj = sports.find((s) => s.id === parsed.detectedSport)
         if (sportObj) {
@@ -130,6 +154,7 @@ export const EventCreationScreen: React.FC = () => {
           newFilled.add('title')
         }
       }
+
       if (newFilled.size > 0) {
         setAiFilledFields((prev) => new Set([...prev, ...newFilled]))
         setTimeout(() => setAiFilledFields(new Set()), 4000)
@@ -275,8 +300,19 @@ export const EventCreationScreen: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-white font-sans font-semibold mb-2 text-sm">Date</label>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 rounded-2xl bg-card-bg border border-white/10 text-white focus:outline-none focus:border-primary" />
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="text-white font-sans font-semibold text-sm">Date</label>
+                    <AnimatePresence>{aiFilledFields.has('date') && <AIBadge />}</AnimatePresence>
+                  </div>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => {
+                      setDate(e.target.value)
+                      setAiFilledFields((prev) => { const n = new Set(prev); n.delete('date'); return n })
+                    }}
+                    className="w-full px-4 py-3 rounded-2xl bg-card-bg border border-white/10 text-white focus:outline-none focus:border-primary"
+                  />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -432,6 +468,21 @@ export const EventCreationScreen: React.FC = () => {
                 <Button variant="outline" onClick={() => setStep(2)} size="lg" className="flex-1"><ChevronLeft size={18} /> Back</Button>
                 <Button onClick={handleCreate} disabled={!canSubmit} size="lg" className="flex-1">Create Event 🚀</Button>
               </div>
+              {/* Share preview */}
+              {canSubmit && (
+                <div className="flex justify-center">
+                  <ShareButton
+                    event={{
+                      title: title,
+                      sport: sport?.label ?? '',
+                      location: location,
+                      time: `${date} at ${time}`,
+                      emoji: sport?.emoji ?? '🏃',
+                    }}
+                    className="text-sm"
+                  />
+                </div>
+              )}
             </motion.div>
           )}
 
