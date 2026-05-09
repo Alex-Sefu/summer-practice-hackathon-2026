@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react'
-import { motion } from 'framer-motion'
-import { LogOut, MapPin, Edit2, Camera, Loader } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { LogOut, MapPin, Edit2, Camera, Loader, X, Save } from 'lucide-react'
 import { sports } from '../data/mockData'
 import { Badge } from '../components/Badge'
+import { Button } from '../components/Button'
 import { useEvents } from '../context/EventsContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -11,34 +12,195 @@ interface ProfileScreenProps {
 }
 
 const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const skillLevels = ['Beginner', 'Intermediate', 'Advanced', 'Pro'] as const
+
+// ─── Edit modal ───────────────────────────────────────────────────────────────
+
+interface EditModalProps {
+  initial: {
+    name: string
+    bio: string
+    location: string
+    skill_level: string
+    avatar_emoji: string
+  }
+  onSave: (data: EditModalProps['initial']) => Promise<void>
+  onClose: () => void
+}
+
+const AVATAR_OPTIONS = ['👤', '😊', '🤓', '😎', '🏋️', '🎯', '🏃', '🚴', '🎾', '⚽']
+
+const EditModal: React.FC<EditModalProps> = ({ initial, onSave, onClose }) => {
+  const [name,         setName]        = useState(initial.name)
+  const [bio,          setBio]         = useState(initial.bio)
+  const [location,     setLocation]    = useState(initial.location)
+  const [skillLevel,   setSkillLevel]  = useState(initial.skill_level)
+  const [avatarEmoji,  setAvatarEmoji] = useState(initial.avatar_emoji)
+  const [saving,       setSaving]      = useState(false)
+
+  const handleSave = async () => {
+    if (!name.trim()) return
+    setSaving(true)
+    await onSave({ name, bio, location, skill_level: skillLevel, avatar_emoji: avatarEmoji })
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 60, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 60, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        className="bg-card-bg border border-white/10 rounded-3xl p-6 w-full max-w-md space-y-5 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-display font-bold text-white">Edit Profile</h2>
+          <button onClick={onClose} className="text-text-muted hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Avatar picker */}
+        <div>
+          <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-2">Avatar</p>
+          <div className="flex gap-2 flex-wrap">
+            {AVATAR_OPTIONS.map((emoji) => (
+              <motion.button
+                key={emoji}
+                onClick={() => setAvatarEmoji(emoji)}
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.9 }}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all ${
+                  avatarEmoji === emoji
+                    ? 'bg-primary ring-2 ring-primary ring-offset-2 ring-offset-card-bg'
+                    : 'bg-white/10 hover:bg-white/20'
+                }`}
+              >
+                {emoji}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* Name */}
+        <div>
+          <label className="block text-white font-sans font-semibold mb-2 text-sm">Display Name *</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+            className="w-full px-4 py-3 rounded-2xl bg-dark-bg border border-white/10 text-white placeholder-text-muted focus:outline-none focus:border-primary transition-colors"
+          />
+        </div>
+
+        {/* Bio */}
+        <div>
+          <label className="block text-white font-sans font-semibold mb-2 text-sm">Bio</label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Tell people about yourself..."
+            rows={2}
+            className="w-full px-4 py-3 rounded-2xl bg-dark-bg border border-white/10 text-white placeholder-text-muted focus:outline-none focus:border-primary transition-colors resize-none"
+          />
+        </div>
+
+        {/* Location */}
+        <div>
+          <label className="block text-white font-sans font-semibold mb-2 text-sm">City</label>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Bucharest, Cluj..."
+            className="w-full px-4 py-3 rounded-2xl bg-dark-bg border border-white/10 text-white placeholder-text-muted focus:outline-none focus:border-primary transition-colors"
+          />
+        </div>
+
+        {/* Skill level */}
+        <div>
+          <label className="block text-white font-sans font-semibold mb-2 text-sm">Skill Level</label>
+          <div className="grid grid-cols-2 gap-2">
+            {skillLevels.map((level) => (
+              <motion.button
+                key={level}
+                onClick={() => setSkillLevel(level)}
+                whileHover={{ scale: 1.03 }}
+                className={`py-2 px-3 rounded-xl font-sans font-semibold text-sm transition-all ${
+                  skillLevel === level
+                    ? 'bg-gradient-to-r from-primary to-secondary text-white'
+                    : 'bg-dark-bg border border-white/10 text-text-muted hover:text-white'
+                }`}
+              >
+                {level}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* Save */}
+        <Button
+          onClick={handleSave}
+          disabled={!name.trim() || saving}
+          size="lg"
+          className="w-full"
+        >
+          {saving ? (
+            <>
+              <Loader size={16} className="animate-spin" />
+              Saving…
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              Save Changes
+            </>
+          )}
+        </Button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const { events } = useEvents()
-  const { profile, signOut, uploadAvatar } = useAuth()
+  const { profile, signOut, uploadAvatar, updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarLoading, setAvatarLoading] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   // Merge Supabase profile with localStorage fallback
   const localRaw = localStorage.getItem('userProfile')
   const local = localRaw ? JSON.parse(localRaw) : null
 
-  const displayName = profile?.name || local?.name || 'Player'
-  const displayBio = profile?.bio || local?.bio || ''
-  const displayLocation = profile?.location || local?.location || ''
-  const displaySkill = profile?.skill_level || local?.skillLevel || ''
-  const displaySports: string[] = profile?.sports || local?.selectedSports || []
-  const displayAvailability: string[] = profile?.availability || local?.availability || []
-  const displayAvatar = profile?.avatar_emoji || local?.avatarEmoji || '👤'
-  const displayAvatarUrl = profile?.avatar_url || null
-  const gamesPlayed = profile?.games_played ?? 12
-  const streak = profile?.streak ?? 4
+  const displayName        = profile?.name         || local?.name         || 'Player'
+  const displayBio         = profile?.bio          || local?.bio          || ''
+  const displayLocation    = profile?.location     || local?.location     || ''
+  const displaySkill       = profile?.skill_level  || local?.skillLevel   || ''
+  const displaySports: string[]       = profile?.sports       || local?.selectedSports || []
+  const displayAvailability: string[] = profile?.availability || local?.availability   || []
+  const displayAvatar      = profile?.avatar_emoji || local?.avatar_emoji || local?.avatarEmoji || '👤'
+  const displayAvatarUrl   = profile?.avatar_url   || null
+  const gamesPlayed        = profile?.games_played ?? 0
+  const streak             = profile?.streak       ?? 0
 
-  const initials = displayName.charAt(0).toUpperCase()
+  const initials   = displayName.charAt(0).toUpperCase()
   const userSports = sports.filter((s) => displaySports.includes(s.id))
 
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click()
-  }
+  const handleAvatarClick = () => fileInputRef.current?.click()
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -48,7 +210,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     setAvatarLoading(false)
   }
 
+  const handleSaveEdit = async (data: {
+    name: string; bio: string; location: string; skill_level: string; avatar_emoji: string
+  }) => {
+    // updateProfile writes to localStorage immediately and tries Supabase in background
+    await updateProfile(data)
+  }
+
   const handleLogout = async () => {
+    // Clear all local state
+    localStorage.clear()
+    sessionStorage.clear()
     await signOut()
     onLogout()
   }
@@ -56,13 +228,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   return (
     <div className="min-h-screen bg-dark-bg pb-32 lg:pb-8">
       <div className="max-w-md mx-auto p-4 space-y-6">
+
         {/* Header */}
         <div className="pt-4 flex justify-between items-center">
           <h1 className="text-3xl font-display font-bold text-white">Profile</h1>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/20 text-text-muted hover:text-white text-sm font-sans font-semibold transition-colors"
+            onClick={() => setShowEditModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/20 text-text-muted hover:text-white hover:border-white/40 text-sm font-sans font-semibold transition-colors"
           >
             <Edit2 size={14} />
             Edit
@@ -75,12 +249,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col items-center gap-4 py-4"
         >
-          {/* Clickable avatar with upload */}
           <div className="relative">
             <motion.button
               onClick={handleAvatarClick}
               whileHover={{ scale: 1.05 }}
-              className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-display font-bold text-4xl shadow-lg overflow-hidden relative"
+              className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-display font-bold text-4xl shadow-lg overflow-hidden"
             >
               {avatarLoading ? (
                 <Loader size={28} className="animate-spin" />
@@ -90,20 +263,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 <span>{displayAvatar !== '👤' ? displayAvatar : initials}</span>
               )}
             </motion.button>
-            {/* Camera overlay */}
             <div
               onClick={handleAvatarClick}
               className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary flex items-center justify-center cursor-pointer shadow-md"
             >
               <Camera size={13} className="text-white" />
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           </div>
 
           <div className="text-center">
@@ -120,11 +286,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           </div>
         </motion.div>
 
-        {/* Stats row */}
+        {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: 'Games', value: gamesPlayed, emoji: '🏅' },
-            { label: 'Sports', value: userSports.length || sportsCount(displaySports), emoji: '⚽' },
+            { label: 'Sports', value: userSports.length > 0 ? userSports.length : displaySports.length, emoji: '⚽' },
             { label: 'Streak', value: `${streak}d`, emoji: '🔥' },
           ].map(({ label, value, emoji }, idx) => (
             <motion.div
@@ -155,10 +321,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
             <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-3">My Sports</p>
             <div className="flex flex-wrap gap-2">
               {userSports.map((sport) => (
-                <span
-                  key={sport.id}
-                  className={`px-3 py-1.5 rounded-full bg-gradient-to-r ${sport.gradient} text-white text-sm font-sans font-semibold`}
-                >
+                <span key={sport.id} className={`px-3 py-1.5 rounded-full bg-gradient-to-r ${sport.gradient} text-white text-sm font-sans font-semibold`}>
                   {sport.emoji} {sport.label}
                 </span>
               ))}
@@ -172,14 +335,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
             <p className="text-text-muted text-xs font-sans font-semibold uppercase tracking-wider mb-3">Availability</p>
             <div className="grid grid-cols-7 gap-1.5">
               {daysOfWeek.map((day) => (
-                <div
-                  key={day}
-                  className={`py-2 rounded-lg text-center text-xs font-sans font-semibold transition-colors ${
-                    displayAvailability.includes(day)
-                      ? 'bg-primary text-white'
-                      : 'bg-white/5 text-text-muted'
-                  }`}
-                >
+                <div key={day} className={`py-2 rounded-lg text-center text-xs font-sans font-semibold ${
+                  displayAvailability.includes(day) ? 'bg-primary text-white' : 'bg-white/5 text-text-muted'
+                }`}>
                   {day}
                 </div>
               ))}
@@ -210,7 +368,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           )}
         </div>
 
-        {/* Logout button */}
+        {/* Logout */}
         <motion.button
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
@@ -221,11 +379,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           Log out
         </motion.button>
       </div>
+
+      {/* Edit modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <EditModal
+            initial={{
+              name: displayName,
+              bio: displayBio,
+              location: displayLocation,
+              skill_level: displaySkill,
+              avatar_emoji: displayAvatar,
+            }}
+            onSave={handleSaveEdit}
+            onClose={() => setShowEditModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
-}
-
-// Helper to count sports from string array
-function sportsCount(sportIds: string[]): number {
-  return sportIds.length || 3
 }

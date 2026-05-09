@@ -2,6 +2,7 @@ import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Home, Flame, Calendar, MessageCircle, User } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useAuth } from '../context/AuthContext'
 
 const navItems = [
   { path: '/', icon: Home, label: 'Home' },
@@ -14,12 +15,16 @@ const navItems = [
 export const Sidebar: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
+  const { profile } = useAuth()
 
-  // Read user profile from localStorage
-  const profileRaw = localStorage.getItem('userProfile')
-  const profile = profileRaw ? JSON.parse(profileRaw) : null
-  const displayName = profile?.name || 'Player'
-  const initials = displayName.charAt(0).toUpperCase()
+  // Auth context is source of truth; fall back to localStorage for demo mode
+  const localRaw = localStorage.getItem('userProfile')
+  const local = localRaw ? JSON.parse(localRaw) : null
+
+  const displayName  = profile?.name         || local?.name         || 'Player'
+  const displayAvatar = profile?.avatar_emoji || local?.avatar_emoji || local?.avatarEmoji || '👤'
+  const initials     = displayName.charAt(0).toUpperCase()
+  const showEmoji    = displayAvatar && displayAvatar !== '👤'
 
   return (
     <div className="w-[260px] h-screen sticky top-0 bg-card-bg border-r border-white/10 flex flex-col px-6 py-8">
@@ -63,11 +68,11 @@ export const Sidebar: React.FC = () => {
         })}
       </nav>
 
-      {/* User mini-profile */}
+      {/* User mini-profile — updates instantly when profile changes */}
       <div className="mt-auto pt-6 border-t border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-display font-bold text-sm flex-shrink-0">
-            {initials}
+            {showEmoji ? displayAvatar : initials}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-sans font-semibold text-sm truncate">{displayName}</p>

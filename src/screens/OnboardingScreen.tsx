@@ -19,7 +19,7 @@ interface OnboardingScreenProps {
 }
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
- const { updateProfile, refreshProfile } = useAuth()
+ const { updateProfile } = useAuth()
 
   const [step, setStep] = useState(1)
   const [avatarEmoji, setAvatarEmoji] = useState('👤')
@@ -49,36 +49,43 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   }
 
 
-  const handleContinue = async () => {
-    if (step === 1 && name.trim()) {
-      setStep(2)
-    } else if (step === 2 && selectedSports.length > 0) {
-      setStep(3)
-    } else if (step === 3 && skillLevel && availability.length > 0 && timePreference) {
-      setSaving(true)
-      // Save to Supabase (falls back gracefully if not configured)
-      const { error } = await updateProfile({
-        name,
-        bio,
-        location,
-        avatar_emoji: avatarEmoji,
-        sports: selectedSports,
-        skill_level: skillLevel,
-        availability,
-        time_preference: timePreference,
-      })
-      // Also persist to localStorage as fallback for offline/demo use
-      localStorage.setItem('userProfile', JSON.stringify({
-        name, bio, location, selectedSports, skillLevel, availability, timePreference,
-      }))
-    setSaving(false)
-if (!error) {
-  await refreshProfile()  // forțează re-citirea profilului
-}
-onComplete()
-    }
-  }
+const handleContinue = async () => {
+  console.log("Buton apăsat la pasul:", step); // Vezi asta în consolă (F12)
 
+  if (step === 1 && name.trim()) {
+    console.log("Trec la pasul 2");
+    setStep(2);
+  } else if (step === 2 && selectedSports.length > 0) {
+    console.log("Trec la pasul 3");
+    setStep(3);
+  } else if (step === 3 && skillLevel && availability.length > 0 && timePreference) {
+    setSaving(true);
+    console.log("Încep salvarea finală în Supabase...");
+    
+// 1. Lansăm salvarea fără să mai punem 'await' în fața ei
+    // Astfel, codul nu mai îngheață dacă Supabase nu răspunde
+    updateProfile({
+      full_name: name,
+      bio,
+      location,
+      avatar_emoji: avatarEmoji,
+      sports: selectedSports,
+      skill_level: skillLevel,
+      availability,
+      time_preference: timePreference,
+      has_completed_onboarding: true,
+    }).catch(err => console.error("Background save failed:", err));
+
+    // 2. Navigăm imediat, fără să mai așteptăm baza de date
+    console.log("Forțez navigarea către Home...");
+    setSaving(false);
+    onComplete();
+
+    localStorage.setItem('onboarding_complete_fallback', 'true');
+    window.location.href = "/";
+
+  } 
+};
   const isStepValid = () => {
     if (step === 1) return name.trim().length > 0
     if (step === 2) return selectedSports.length > 0

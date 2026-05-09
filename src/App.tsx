@@ -18,26 +18,26 @@ import { EventsProvider } from './context/EventsContext'
 import { ShowUpProvider } from './context/ShowUpContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
-const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <div className="min-h-screen bg-dark-bg flex">
-      <div className="hidden lg:block w-[260px] shrink-0">
-        <Sidebar />
-      </div>
-      <div className="flex-1 flex flex-col min-h-screen">
-        <main className="flex-1 max-w-[600px] w-full mx-auto px-4 pb-20 lg:pb-6 lg:py-6">
-          {children}
-        </main>
-        <div className="lg:hidden">
-          <BottomNav />
-        </div>
-      </div>
-      <div className="hidden xl:block w-[320px] shrink-0">
-        <RightPanel />
+// ─── Layout ────────────────────────────────────────────────────────────────
+
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="min-h-screen bg-dark-bg flex">
+    <div className="hidden lg:block w-[260px] shrink-0">
+      <Sidebar />
+    </div>
+    <div className="flex-1 flex flex-col min-h-screen">
+      <main className="flex-1 max-w-[600px] w-full mx-auto px-4 pb-20 lg:pb-6 lg:py-6">
+        {children}
+      </main>
+      <div className="lg:hidden">
+        <BottomNav />
       </div>
     </div>
-  )
-}
+    <div className="hidden xl:block w-[320px] shrink-0">
+      <RightPanel />
+    </div>
+  </div>
+)
 
 const FullscreenSpinner: React.FC = () => (
   <div className="min-h-screen bg-dark-bg flex items-center justify-center">
@@ -50,65 +50,105 @@ const FullscreenSpinner: React.FC = () => (
   </div>
 )
 
-const AppContent: React.FC = () => {
-  const { session, profile, loading, signOut, refreshProfile } = useAuth()
+// ─── Route Guards (Modificate pentru Bypass) ────────────────────────────────
 
-  const isAuthenticated = !!session
-  const isOnboardingDone =
-    isAuthenticated &&
-    profile !== null &&
-    Array.isArray(profile?.sports) &&
-    profile.sports.length > 0
+const RootGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { session, profile, loading } = useAuth()
+  
+  // Verificăm dacă există flag-ul de fallback în browser (Emergency Bypass)
+  const isOnboardingDoneLocal = localStorage.getItem('onboarding_complete_fallback') === 'true'
+
+  if (loading) return <FullscreenSpinner />
+  
+  // 1. Dacă nu e logat -> Trimite la Auth
+  if (!session) return <Navigate to="/auth" replace />
+  
+  // 2. Verificăm dacă onboarding-ul este gata (în DB sau LocalStorage)
+  const isDone = profile?.has_completed_onboarding || isOnboardingDoneLocal
+  
+  if (!isDone) {
+    return <Navigate to="/onboarding" replace />
+  }
+  
+  return <>{children}</>
+}
+
+const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { session, profile, loading } = useAuth()
+  const isOnboardingDoneLocal = localStorage.getItem('onboarding_complete_fallback') === 'true'
+
+  if (loading) return <FullscreenSpinner />
+  
+  if (session) {
+    const isDone = profile?.has_completed_onboarding || isOnboardingDoneLocal
+    return <Navigate to={isDone ? "/" : "/onboarding"} replace />
+  }
+  
+  return <>{children}</>
+}
+
+// ─── App shell ─────────────────────────────────────────────────────────────
+
+const AppContent: React.FC = () => {
+  const { signOut, refreshProfile, session, profile, loading } = useAuth()
+  
+  // Flag pentru a decide dacă arătăm elementele de UI din Home
+  const isOnboardingDoneLocal = localStorage.getItem('onboarding_complete_fallback') === 'true'
+  const isAppReady = session && (profile?.has_completed_onboarding || isOnboardingDoneLocal)
 
   const handleOnboardingComplete = async () => {
+    // Încercăm să împrospătăm datele din DB, dar fallback-ul local ne va lăsa să trecem oricum
     await refreshProfile()
   }
 
   const handleLogout = async () => {
+    // Curățăm tot la logout
+    localStorage.removeItem('onboarding_complete_fallback')
     await signOut()
   }
 
   if (loading) return <FullscreenSpinner />
-
-  if (!isAuthenticated) {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="*" element={<AuthScreen />} />
-        </Routes>
-      </BrowserRouter>
-    )
-  }
-
-  if (!isOnboardingDone) {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route
-            path="*"
-            element={<OnboardingScreen onComplete={handleOnboardingComplete} />}
-          />
-        </Routes>
-      </BrowserRouter>
-    )
-  }
 
   return (
     <CurrentUserProvider>
       <EventsProvider>
         <ShowUpProvider>
           <BrowserRouter>
-            <ShowUpModal />
+            {/* ShowUpModal apare doar dacă suntem în interiorul aplicației */}
+            {isAppReady && <ShowUpModal />}
+            
             <Routes>
-              <Route path="/" element={<Layout><HomeScreen /></Layout>} />
-              <Route path="/match" element={<Layout><MatchScreen /></Layout>} />
-              <Route path="/events/create" element={<Layout><EventCreationScreen /></Layout>} />
-              <Route path="/chat" element={<Layout><ChatScreen /></Layout>} />
-              <Route path="/chat/:roomId" element={<Layout><ChatScreen /></Layout>} />
+              {/* Ruta de Auth */}
               <Route
-                path="/profile"
-                element={<Layout><ProfileScreen onLogout={handleLogout} /></Layout>}
+                path="/auth"
+                element={
+                  <AuthGuard>
+                    <AuthScreen />
+                  </AuthGuard>
+                }
               />
+
+              {/* Ruta de Onboarding */}
+              <Route
+                path="/onboarding"
+                element={
+                  session && !(profile?.has_completed_onboarding || isOnboardingDoneLocal) ? (
+                    <OnboardingScreen onComplete={handleOnboardingComplete} />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+
+              {/* Rute Protejate */}
+              <Route path="/" element={<RootGuard><Layout><HomeScreen /></Layout></RootGuard>} />
+              <Route path="/match" element={<RootGuard><Layout><MatchScreen /></Layout></RootGuard>} />
+              <Route path="/events/create" element={<RootGuard><Layout><EventCreationScreen /></Layout></RootGuard>} />
+              <Route path="/chat" element={<RootGuard><Layout><ChatScreen /></Layout></RootGuard>} />
+              <Route path="/chat/:roomId" element={<RootGuard><Layout><ChatScreen /></Layout></RootGuard>} />
+              <Route path="/profile" element={<RootGuard><Layout><ProfileScreen onLogout={handleLogout} /></Layout></RootGuard>} />
+
+              {/* Fallback universal */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
@@ -118,12 +158,10 @@ const AppContent: React.FC = () => {
   )
 }
 
-export const App: React.FC = () => {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  )
-}
+export const App: React.FC = () => (
+  <AuthProvider>
+    <AppContent />
+  </AuthProvider>
+)
 
 export default App
