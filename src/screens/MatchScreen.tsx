@@ -477,10 +477,7 @@ export const MatchScreen: React.FC = () => {
                     <Button variant="danger" size="lg" onClick={handleSkip} className="flex-1">
                       <X size={20} /> Skip
                     </Button>
-                    <Button variant="outline" size="lg" onClick={handleSuperJoin}
-                      className="flex-1 border-warning text-warning hover:bg-warning/10">
-                      <Star size={20} /> Super
-                    </Button>
+                   
                     <Button
                       variant={currentCard && hasJoined(currentCard.id) ? 'secondary' : 'success'}
                       size="lg"
